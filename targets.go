@@ -33,6 +33,8 @@ func (p *Parser) parseTarget(t *Target) (state, error) {
 		s, err = p.parseSNAT(&t.Flags)
 	case "MASQUERADE":
 		s, err = p.parseMASQUERADE(&t.Flags)
+	case "REJECT":
+		s, err = p.parseREJECT(&t.Flags)
 	default:
 		s = sError
 		err = fmt.Errorf("target %q is not implemented", lit)
@@ -179,6 +181,50 @@ func (p *Parser) parseDNAT(f *map[string]Flag) (state, error) {
 					s = sStart
 				case lit == "--persistent":
 					(*f)["persistent"] = Flag{}
+					s = sStart
+				default:
+					// The end of the match statement is reached.
+					p.unscan(1)
+					return sStart, nil
+				}
+
+			default:
+				return sStart, errors.New("unexpected error parsing match extension")
+			}
+		}
+	}
+	p.unscan(1) // unscan the last rune, so main parser can interprete it
+	return sStart, nil
+}
+
+func (p *Parser) parseREJECT(f *map[string]Flag) (state, error) {
+	s := sStart
+	for tok, lit := p.scanIgnoreWhitespace(); tok != EOF && tok != NEWLINE; tok, lit = p.scanIgnoreWhitespace() {
+		nextValue := false
+		for !nextValue {
+			nextValue = true
+			switch s {
+			case sStart:
+				switch tok {
+				case FLAG:
+					s = sIF
+					nextValue = false
+				default:
+					// No more flags
+					p.unscan(1)
+					return sStart, nil
+				}
+			case sIF:
+				switch {
+				case lit == "--reject-with":
+					str := ""
+					for tok, lit := p.scanIgnoreWhitespace(); tok != EOF && tok != WS && tok != NOT && tok != NEWLINE; tok, lit = p.scan() {
+						str += lit
+					}
+					p.unscan(1)
+					(*f)["reject-with"] = Flag{
+						Values: []string{str},
+					}
 					s = sStart
 				default:
 					// The end of the match statement is reached.

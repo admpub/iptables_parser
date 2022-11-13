@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/admpub/pp"
 )
 
 var (
@@ -1036,11 +1038,40 @@ func TestParser_Parse(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "parse reject rule",
+			s:    "-A INPUT -p tcp -m tcp --dport 1234 -j REJECT --reject-with icmp-port-unreachable",
+			r: Rule{
+				Chain:    "INPUT",
+				Protocol: &StringPair{Value: "tcp"},
+				Jump: &Target{
+					Name: "REJECT",
+					Flags: map[string]Flag{
+						"reject-with": {
+							Values: []string{"icmp-port-unreachable"},
+						},
+					},
+				},
+				Matches: []Match{
+					{
+						Type: "tcp",
+						Flags: map[string]Flag{
+							"destination-port": {
+								Values: []string{"1234"},
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := NewParser(strings.NewReader(tc.s))
 			s, err := p.Parse()
 			if !reflect.DeepEqual(tc.r, s) {
+				pp.Println(tc.r)
+				pp.Println(s)
 				t.Errorf("%d. %s: %q result mismatch:\n\texp=%v\n\tgot=%v\n\terr=%v", i, tc.name, tc.s, tc.r, s, err)
 			} else if tc.err != err && tc.err.Error() != err.Error() {
 				t.Errorf("%d. %s: %q error mismatch:\n\texp=%v\n\tgot=%v.", i, tc.name, tc.s, tc.err, err)
