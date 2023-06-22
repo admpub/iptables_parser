@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/admpub/pp"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -1065,11 +1066,41 @@ func TestParser_Parse(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "parse iprange rule",
+			s:    "-A INPUT -m iprange --src-range 192.168.0.100-192.168.0.255 -m comment --comment 5 -j ACCEPT",
+			r: Rule{
+				Chain: "INPUT",
+				Jump: &Target{
+					Name: "ACCEPT",
+				},
+				Matches: []Match{
+					{
+						Type: "iprange",
+						Flags: map[string]Flag{
+							"src-range": {
+								Values: []string{"192.168.0.100-192.168.0.255"},
+							},
+						},
+					},
+					{
+						Type: "comment",
+						Flags: map[string]Flag{
+							"comment": {
+								Values: []string{"5"},
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := NewParser(strings.NewReader(tc.s))
 			s, err := p.Parse()
 			if !reflect.DeepEqual(tc.r, s) {
+				assert.Equal(t, tc.r, s)
 				pp.Println(tc.r)
 				pp.Println(s)
 				t.Errorf("%d. %s: %q result mismatch:\n\texp=%v\n\tgot=%v\n\terr=%v", i, tc.name, tc.s, tc.r, s, err)
